@@ -67,13 +67,10 @@ io.on('connection', (socket) => {
       api.post(`${baseUrl}/loadSwarmDataNew`, request)
          .then((response) => {
             console.log('success response loadSwarmDataNew');
-            console.log(response.data);
             io.emit('start-swarming', response.data);
             startSwarming();
          })
-         .catch((err) => {
-            console.log('error response loadSwarmDataNew', err);
-         });
+         .catch((error) => console.log('error loadSwarmDataNew', error));
    });
 
    const startSwarming = () => {
@@ -81,15 +78,14 @@ io.on('connection', (socket) => {
          console.log('requestForSwarming', requestForSwarming);
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
          .then((response) => {
-            console.log('success response calculateGlobalBestSolutionNew');
             io.emit('updated-options', response.data);
          })
-         .catch((error) => console.log('error response calculateGlobalBestSolutionNew', error));
-      }, 10000);
+         .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
+      }, 5000);
       setTimeout(() => {
          clearInterval(interval);
-         // show popup
-      }, 1800000)
+         io.emit('swarm-completed');
+      }, 1800000);
    }
 
    socket.on('option-selected', (request) => {
