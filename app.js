@@ -7,6 +7,7 @@ const _ = require('lodash');
 //const baseUrl = 'https://swarmoptimization.azurewebsites.net/swarmIntelligencePSO';
 const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
+const swarmDuration = 60000;
 
 const port = process.env.PORT || 4003;
 const index = require("./routes/index");
@@ -16,9 +17,10 @@ app.use(index);
 
 const server = http.createServer(app);
 const io = socketIo(server);
-let globalRoom;
+io.set("transports", ["websocket"]);
 let particleDetails = [];
 let requestForSwarming;
+let swarmStart = false;
 
 const getOnlineUsers = (room) => {
    console.log(`room : ${room}`);
@@ -49,6 +51,28 @@ io.on('connection', (socket) => {
       socket.join(room);
    });
 
+   socket.on('checkRooms', ()=>{
+      let gameActive = {'roomid' : '', 'gameActive': false};
+      console.log('checking rooms');
+      rooms = io.sockets.adapter.rooms;
+      console.log(rooms);
+      for (var room in rooms) {
+         if(room.length > 0 && room.length<=2) {
+            if(rooms[room].length > 1 && swarmStart) {
+               gameActive = {'roomId' : room, 'gameActive': true};
+            } else if (rooms[room].length > 1) {
+               gameActive = {'roomId' : room, 'gameActive': false};
+            }else if (rooms[room].length === 1) {
+               gameActive = {'roomId' : room, 'gameActive': false};
+               swarmStart = false;
+            }
+            io.emit('checkRooms', gameActive);
+         }
+      }   
+      console.log(`Done room checking`);
+   });
+
+
    socket.on('add_user', user => {
       socket.user = user;
       console.log(`socket_room: ${socket.room}`);
@@ -66,9 +90,10 @@ io.on('connection', (socket) => {
       console.log('1st api', request);
       api.post(`${baseUrl}/loadSwarmDataNew`, request)
          .then((response) => {
-            console.log('success response loadSwarmDataNew');
-            io.emit('start-swarming', response.data);
-            startSwarming();
+            console.log(`success response loadSwarmDataNew : ${response.data} \n SwarmDuration : ${swarmDuration}`);
+            io.to(request.roomId).emit('start-swarming', swarmDuration);
+            startSwarming(request.roomId);
+            swarmStart = true;
          })
          .catch((error) => console.log('error loadSwarmDataNew', error));
    });
@@ -84,8 +109,13 @@ io.on('connection', (socket) => {
       }, 5000);
       setTimeout(() => {
          clearInterval(interval);
-         io.emit('swarm-completed');
-      }, 1800000);
+         api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
+         .then((response) => {
+            io.emit('updated-options', response.data);
+            io.emit('swarm-completed');
+         })
+         .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
+      }, swarmDuration);
    }
 
    socket.on('option-selected', (request) => {
@@ -94,13 +124,6 @@ io.on('connection', (socket) => {
       requestForSwarming = {roomId: request.roomId, particles: particleDetails.map(p => ({particleId: p.particleId, position: p.position}))};
    });
 
-   setTimeout(() => {
-      let coordinate = {
-         x: 160,
-         y: 200,
-      };
-      io.in(globalRoom).emit('globalPeg', { coordinate });
-   }, 50000)
 });
 
 server.listen(port, () => console.log(`Listening on port ${port}`));
