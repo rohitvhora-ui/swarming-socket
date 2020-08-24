@@ -75,7 +75,9 @@ io.on('connection', (socket) => {
    socket.on('add_user', user => {
       socket.user = user;
       console.log(`socket_room: ${socket.room}`);
-      emitOnlineUsers(socket.room);
+      setTimeout(() => {
+         emitOnlineUsers(socket.room);
+      }, 50)
    })
 
    socket.on('canvas', (data) => {
