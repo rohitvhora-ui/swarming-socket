@@ -5,7 +5,7 @@ const api = require("axios");
 const _ = require('lodash');
 
 //const baseUrl = 'https://swarmoptimization.azurewebsites.net/swarmIntelligencePSO';
-const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO';
+const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
 const swarmDuration = 60000;
 
