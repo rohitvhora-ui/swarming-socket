@@ -7,7 +7,7 @@ const _ = require('lodash');
 //const baseUrl = 'https://swarmoptimization.azurewebsites.net/swarmIntelligencePSO';
 const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
-const swarmDuration = 60000;
+const swarmDuration = 120000;
 
 const port = process.env.PORT || 4003;
 const index = require("./routes/index");
@@ -107,7 +107,7 @@ io.on('connection', (socket) => {
             io.emit('updated-options', response.data);
          })
          .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
-      }, 5000);
+      }, 2000);
       setTimeout(() => {
          clearInterval(interval);
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
