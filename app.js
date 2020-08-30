@@ -9,7 +9,7 @@ const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
 const swarmDuration = 120000;
 const apiCall = 2000;
-const maxInteration = swarmDuration/apiCall;
+const maxIteration = swarmDuration/apiCall;
 let iteration = 0;
 
 const port = process.env.PORT || 4003;
@@ -113,7 +113,7 @@ io.on('connection', (socket) => {
          console.log('requestForSwarming', requestForSwarming);
          iteration = iteration + 1;
          requestForSwarming.iteration = iteration;
-         requestForSwarming.maxInteration = maxInteration;
+         requestForSwarming.maxIteration = maxIteration;
          gamePlayerActivities = [];
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
          .then((response) => {
