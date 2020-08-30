@@ -8,7 +8,7 @@ const _ = require('lodash');
 const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
 const swarmDuration = 120000;
-const apiCall = 10000;
+const apiCall = 2000;
 const maxInteration = swarmDuration/apiCall;
 let iteration = 0;
 
