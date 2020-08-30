@@ -8,6 +8,9 @@ const _ = require('lodash');
 const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
 const swarmDuration = 120000;
+const apiCall = 10000;
+const maxInteration = swarmDuration/apiCall;
+let iteration = 0;
 
 const port = process.env.PORT || 4003;
 const index = require("./routes/index");
@@ -20,6 +23,7 @@ const io = socketIo(server);
 let particleDetails = [];
 let requestForSwarming;
 let swarmStart = false;
+let gamePlayerActivities = [];
 
 const getOnlineUsers = (room) => {
    console.log(`room : ${room}`);
@@ -27,6 +31,12 @@ const getOnlineUsers = (room) => {
    let sockets = Object.values(clients);
    let users = sockets.map(u => u.user);
    return users.filter(u => u != undefined);
+};
+
+const removeConsecutive = (objects) => {
+  return _.reject(objects,  (object, i) => {
+      return i > 0 && objects[i - 1].x === object.x && objects[i - 1].y === object.y;
+   });
 };
 
 const emitOnlineUsers = (room) => {
@@ -83,8 +93,6 @@ io.on('connection', (socket) => {
    socket.on('canvas', (data) => {
       const { room, name, coordinate, color, opacity } = data;
       globalRoom = room;
-      //console.log(`coordinate (x:y): ( ${coordinate.x} : ${coordinate.y} ), room: ${room}, name: ${name}`);
-      //io.to(room).emit('canvas', { room, name, coordinate, color, opacity });
    });
 
    socket.on('can-start-swarming', (request) => {
@@ -93,6 +101,7 @@ io.on('connection', (socket) => {
          .then((response) => {
             console.log(`success response loadSwarmDataNew : ${response.data} \n SwarmDuration : ${swarmDuration}`);
             io.to(request.roomId).emit('start-swarming', swarmDuration);
+            iteration = 0;
             startSwarming(request.roomId);
             swarmStart = true;
          })
@@ -102,12 +111,16 @@ io.on('connection', (socket) => {
    const startSwarming = () => {
       const interval = setInterval(() => {
          console.log('requestForSwarming', requestForSwarming);
+         iteration = iteration + 1;
+         requestForSwarming.iteration = iteration;
+         requestForSwarming.maxInteration = maxInteration;
+         gamePlayerActivities = [];
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
          .then((response) => {
             io.emit('updated-options', response.data);
          })
          .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
-      }, 2000);
+      }, apiCall);
       setTimeout(() => {
          clearInterval(interval);
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
@@ -120,9 +133,27 @@ io.on('connection', (socket) => {
    }
 
    socket.on('option-selected', (request) => {
+      console.log(request);
       particleDetails = [request, ...particleDetails];
       particleDetails = (_.uniqBy(particleDetails, (particle) => particle.particleId));
-      requestForSwarming = {roomId: request.roomId, particles: particleDetails.map(p => ({particleId: p.particleId, position: p.position}))};
+      console.log(particleDetails);
+      if (gamePlayerActivities.length === 0) {
+         gamePlayerActivities = particleDetails.map(p => ({particleId: p.particleId, positions: new Array(p.position)}));
+      } else{
+         particleDetails.forEach((particle)=> {
+            playerIndex = gamePlayerActivities.findIndex(player => player.particleId === particle.particleId);
+            if( playerIndex === -1){
+               gamePlayerActivities.push({particleId: particle.particleId, positions: new Array(particle.position)});
+            } else {
+               gamePlayerActivities[playerIndex].positions.push(particle.position)
+            }
+         });
+      }
+
+      //requestForSwarming = {roomId: request.roomId, particles: particleDetails.map(p => ({particleId: p.particleId, position: p.position}))};
+      gamePlayerActivities.forEach(player=>player.positions = removeConsecutive(player.positions));
+      requestForSwarming = {roomId: request.roomId, particles: gamePlayerActivities};
+      console.log(gamePlayerActivities);
    });
 
 });
