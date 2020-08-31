@@ -110,8 +110,8 @@ io.on('connection', (socket) => {
 
    const startSwarming = () => {
       const interval = setInterval(() => {
+         iteration = iteration + 1;
          if(requestForSwarming !== undefined) {
-            iteration = iteration + 1;
             requestForSwarming.iteration = iteration;
             requestForSwarming.maxIteration = maxIteration;
             gamePlayerActivities = [];
@@ -125,7 +125,7 @@ io.on('connection', (socket) => {
       }, apiCall);
       setTimeout(() => {
          clearInterval(interval);
-         requestForSwarming.iteration = iteration;
+         requestForSwarming.iteration = iteration + 1;
             requestForSwarming.maxIteration = maxIteration;
          console.log('requestForSwarming', JSON.stringify(requestForSwarming));
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
