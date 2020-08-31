@@ -8,7 +8,7 @@ const _ = require('lodash');
 const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 //const baseUrl = 'https://springbootswarmapi.azurewebsites.net/swarmIntelligencePSO;
 const swarmDuration = 120000;
-const apiCall = 2000;
+const apiCall = 5000;
 const maxIteration = swarmDuration/apiCall;
 let iteration = 0;
 
@@ -111,7 +111,7 @@ io.on('connection', (socket) => {
    const startSwarming = () => {
       const interval = setInterval(() => {
          if(requestForSwarming !== undefined) {
-            console.log('requestForSwarming', requestForSwarming);
+            console.log('requestForSwarming', JSON.stringify(requestForSwarming));
             iteration = iteration + 1;
             requestForSwarming.iteration = iteration;
             requestForSwarming.maxIteration = maxIteration;
@@ -125,6 +125,7 @@ io.on('connection', (socket) => {
       }, apiCall);
       setTimeout(() => {
          clearInterval(interval);
+         console.log('requestForSwarming', JSON.stringify(requestForSwarming));
          api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
          .then((response) => {
             io.emit('updated-options', response.data);
@@ -135,10 +136,10 @@ io.on('connection', (socket) => {
    }
 
    socket.on('option-selected', (request) => {
-      console.log(request);
+      //console.log(request);
       particleDetails = [request, ...particleDetails];
       particleDetails = (_.uniqBy(particleDetails, (particle) => particle.particleId));
-      console.log(particleDetails);
+      //console.log(particleDetails);
       if (gamePlayerActivities.length === 0) {
          gamePlayerActivities = particleDetails.map(p => ({particleId: p.particleId, positions: new Array(p.position)}));
       } else{
@@ -155,7 +156,7 @@ io.on('connection', (socket) => {
       //requestForSwarming = {roomId: request.roomId, particles: particleDetails.map(p => ({particleId: p.particleId, position: p.position}))};
       gamePlayerActivities.forEach(player=>player.positions = removeConsecutive(player.positions));
       requestForSwarming = {roomId: request.roomId, particles: gamePlayerActivities};
-      console.log(gamePlayerActivities);
+      //console.log(gamePlayerActivities);
    });
 
 });
