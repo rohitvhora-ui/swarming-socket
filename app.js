@@ -132,6 +132,7 @@ io.on('connection', (socket) => {
          .then((response) => {
             io.emit('updated-options', response.data);
             io.emit('swarm-completed');
+            requestForSwarming = undefined;
          })
          .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
       }, swarmDuration);
