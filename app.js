@@ -46,7 +46,7 @@ const emitOnlineUsers = (room) => {
 const getApiAndEmit = socket => {
    const response = new Date();
    // Emitting a new message. Will be consumed by the client
-   socket.emit("FromAPI", response);
+   socket.emit("KeepMeAlive", response);
  };
 
 io.on('connection', (socket) => {
@@ -54,7 +54,11 @@ io.on('connection', (socket) => {
    if (connectionInterval) {
       clearInterval(connectionInterval);
     }
-    var connectionInterval = setInterval(() => getApiAndEmit(socket), 1000);
+   var connectionInterval = setInterval(() => getApiAndEmit(socket), 10);
+
+   socket.on("KeepMeAlive", data =>{
+      //console.info(`Keep me Alive from client:  ${data}`);
+   })
 
    socket.on('disconnect', () => {
       console.log(`Disconnected: ${socket.id}`)
