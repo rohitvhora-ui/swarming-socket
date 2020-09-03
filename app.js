@@ -11,6 +11,7 @@ const swarmDuration = 90000;
 const apiCall = 3000;
 const maxIteration = swarmDuration/apiCall;
 let iteration = 0;
+let roomIteration =[];
 
 const port = process.env.PORT || 4003;
 const index = require("./routes/index");
@@ -30,7 +31,7 @@ const getOnlineUsers = (room) => {
    let clients = io.sockets.clients().connected;
    let sockets = Object.values(clients);
    let users = sockets.map(u => u.user);
-   return users.filter(u => u != undefined);
+   return users.filter(u => u != undefined && u.room === room);
 };
 
 const removeConsecutive = (objects) => {
@@ -39,8 +40,8 @@ const removeConsecutive = (objects) => {
    });
 };
 
-const emitOnlineUsers = (room) => {
-   io.in(room).emit("usersOnline", getOnlineUsers(room));
+const emitOnlineUsers = (socket) => {
+   io.in(socket.room).emit("usersOnline", getOnlineUsers(socket.room));
 }
 
 const getApiAndEmit = socket => {
@@ -60,16 +61,16 @@ io.on('connection', (socket) => {
       //console.info(`Keep me Alive from client:  ${data}`);
    })
 
-   socket.on('disconnect', () => {
+   socket.once('disconnect', () => {
       console.log(`Disconnected: ${socket.id}`)
       clearInterval(connectionInterval);
-      const { room } = socket;
-      if (room) {
-         emitOnlineUsers(socket.room);
+      //const { room } = socket;
+      if (socket.room) {
+         emitOnlineUsers(socket);
       }
    });
 
-   socket.on('join', (room) => {
+   socket.once('join', (room) => {
       console.log(`Socket ${socket.id} joining ${room}`);
       socket.room = room;
       socket.join(room);
@@ -97,11 +98,11 @@ io.on('connection', (socket) => {
    });
 
 
-   socket.on('add_user', user => {
+   socket.once('add_user', user => {
       socket.user = user;
       console.log(`socket_room: ${socket.room}`);
       setTimeout(() => {
-         emitOnlineUsers(socket.room);
+         emitOnlineUsers(socket);
       }, 50)
    })
 
@@ -110,47 +111,69 @@ io.on('connection', (socket) => {
       globalRoom = room;
    });
 
-   socket.on('can-start-swarming', (request) => {
-      console.log('1st api', request);
+   socket.once('can-start-swarming', (request) => {
+      console.log('1st api', JSON.stringify(request));
       api.post(`${baseUrl}/loadSwarmDataNew`, request)
          .then((response) => {
             console.log(`success response loadSwarmDataNew : ${response.data} \n SwarmDuration : ${swarmDuration}`);
             io.to(request.roomId).emit('start-swarming', swarmDuration);
-            iteration = 0;
+            
+            const indice = roomIteration.findIndex(r=>r.room === request.roomId);
+            if (indice === -1) {
+               roomIteration.push({
+                  room : request.roomId,
+                  iteration : 0,
+                  requestForSwarming : undefined
+               });
+            } else {
+               roomIteration.splice(indice, 1 , {
+                  room : request.roomId,
+                  iteration : 0,
+                  requestForSwarming : undefined
+               });
+            }
             startSwarming(request.roomId);
             swarmStart = true;
          })
          .catch((error) => console.log('error loadSwarmDataNew', error));
    });
 
-   const startSwarming = () => {
-      const interval = setInterval(() => {
-         iteration = iteration + 1;
-         if(requestForSwarming !== undefined) {
-            requestForSwarming.iteration = iteration;
-            requestForSwarming.maxIteration = maxIteration;
-            gamePlayerActivities = [];
-            console.log('requestForSwarming', JSON.stringify(requestForSwarming));
-            api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
-            .then((response) => {
-               io.emit('updated-options', response.data);
-            })
-            .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
-         }
-      }, apiCall);
-      setTimeout(() => {
+   const startSwarming = (room) => {
+      const interval = setInterval((roomId) => {
+         const indice = roomIteration.findIndex(r => r.room === roomId);
+         roomIteration[indice].iteration = roomIteration[indice].iteration + 1;
+            if(roomIteration[indice].requestForSwarming !== undefined) {
+               roomIteration[indice].requestForSwarming.iteration = roomIteration[indice].iteration;
+               roomIteration[indice].requestForSwarming.maxIteration = maxIteration;
+               gamePlayerActivities = [];
+               console.log('requestForSwarming', JSON.stringify(roomIteration[indice].requestForSwarming));
+               api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, roomIteration[indice].requestForSwarming)
+               .then((response) => {
+                  console.log(`ResponseForSwarmming : ${JSON.stringify(response.data)}`);
+                  io.in(roomId).emit('updated-options', response.data);
+               })
+               .catch((error) => {
+                  clearInterval(interval);
+                  console.log(`${room} error calculateGlobalBestSolutionNew`, error)});
+            }
+      }, apiCall, room);
+      setTimeout((roomId) => {
          clearInterval(interval);
-         requestForSwarming.iteration = iteration + 1;
-            requestForSwarming.maxIteration = maxIteration;
-         console.log('requestForSwarming', JSON.stringify(requestForSwarming));
-         api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, requestForSwarming)
+         const indice = roomIteration.findIndex(r => r.room === roomId);
+         roomIteration[indice].requestForSwarming.iteration = roomIteration[indice].iteration + 1;
+         roomIteration[indice].requestForSwarming.maxIteration = maxIteration;
+         console.log('requestForSwarming', JSON.stringify(roomIteration[indice].requestForSwarming));
+         api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, roomIteration[indice].requestForSwarming)
          .then((response) => {
-            io.emit('updated-options', response.data);
-            io.emit('swarm-completed');
-            requestForSwarming = undefined;
+            console.log(`ResponseForSwarmming : ${JSON.stringify(response.data)}`);
+            io.in(roomId).emit('updated-options', response.data);
+            io.in(roomId).emit('swarm-completed');
+            //const indice = roomIteration.findIndex(r => r.room === roomId);
          })
-         .catch((error) => console.log('error calculateGlobalBestSolutionNew', error));
-      }, swarmDuration);
+         .catch((error) => {
+            console.log(`${room} error calculateGlobalBestSolutionNew`, error)})
+         ;
+      }, swarmDuration, room);
    }
 
    socket.on('option-selected', (request) => {
@@ -159,12 +182,12 @@ io.on('connection', (socket) => {
       particleDetails = (_.uniqBy(particleDetails, (particle) => particle.particleId));
       //console.log(particleDetails);
       if (gamePlayerActivities.length === 0) {
-         gamePlayerActivities = particleDetails.map(p => ({particleId: p.particleId, positions: new Array(p.position)}));
+         gamePlayerActivities = particleDetails.map(p => ({particleId: p.particleId, positions: new Array(p.position), roomId : p.roomId}));
       } else{
          particleDetails.forEach((particle)=> {
             playerIndex = gamePlayerActivities.findIndex(player => player.particleId === particle.particleId);
             if( playerIndex === -1){
-               gamePlayerActivities.push({particleId: particle.particleId, positions: new Array(particle.position)});
+               gamePlayerActivities.push({particleId: particle.particleId, positions: new Array(particle.position), roomId : particle.roomId});
             } else {
                gamePlayerActivities[playerIndex].positions.push(particle.position)
             }
@@ -173,7 +196,8 @@ io.on('connection', (socket) => {
 
       //requestForSwarming = {roomId: request.roomId, particles: particleDetails.map(p => ({particleId: p.particleId, position: p.position}))};
       gamePlayerActivities.forEach(player=>player.positions = removeConsecutive(player.positions));
-      requestForSwarming = {roomId: request.roomId, particles: gamePlayerActivities};
+      const indice = roomIteration.findIndex(r => r.room === request.roomId);
+      roomIteration[indice].requestForSwarming = {roomId: request.roomId, particles: gamePlayerActivities.filter(player => player.roomId === request.roomId).map(player => ({particleId: player.particleId, positions: player.positions}))};
       //console.log(gamePlayerActivities);
    });
 
