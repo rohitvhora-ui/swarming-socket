@@ -13,7 +13,7 @@ const maxIteration = swarmDuration/apiCall;
 let iteration = 0;
 let roomIteration =[];
 
-const port = process.env.PORT || 4003;
+const port = process.env.PORT || 4004;
 const index = require("./routes/index");
 
 const app = express();
@@ -118,20 +118,11 @@ io.on('connection', (socket) => {
             console.log(`success response loadSwarmDataNew : ${response.data} \n SwarmDuration : ${swarmDuration}`);
             io.to(request.roomId).emit('start-swarming', swarmDuration);
             
-            const indice = roomIteration.findIndex(r=>r.room === request.roomId);
-            if (indice === -1) {
-               roomIteration.push({
-                  room : request.roomId,
-                  iteration : 0,
-                  requestForSwarming : undefined
-               });
-            } else {
-               roomIteration.splice(indice, 1 , {
-                  room : request.roomId,
-                  iteration : 0,
-                  requestForSwarming : undefined
-               });
-            }
+            //const indice = roomIteration.findIndex(r=>r.room === request.roomId);
+            roomIteration.push({
+               room : request.roomId,
+               iteration : 0
+            });
             startSwarming(request.roomId);
             swarmStart = true;
          })
