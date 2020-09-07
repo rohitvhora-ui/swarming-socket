@@ -10,7 +10,7 @@ const baseUrl = 'https://swarmapi.azurewebsites.net/swarmIntelligencePSO';
 const swarmDuration = 90000;
 const apiCall = 3000;
 const maxIteration = swarmDuration/apiCall;
-let interval, timeout;
+let intervals = [], timeouts = [];
 let roomIteration =[];
 
 const port = process.env.PORT || 4004;
@@ -65,8 +65,16 @@ io.on('connection', (socket) => {
    socket.once('disconnect', () => {
       console.log(`Disconnected: ${socket.id}`)
       clearInterval(connectionInterval);
-      clearInterval(interval);
-      clearTimeout(timeout);
+      const interVal = intervals.findIndex(interval=>interval.room === socket.room);
+      const timeVal = timeouts.findIndex(timeout=>timeout.room === socket.room);
+      if (interVal !== -1) {
+         clearInterval(intervals[interVal].interval);
+         intervals.splice(interVal, 1);
+      }
+      if (timeVal !== -1) {
+         clearInterval(intervals[timeVal].timeout);
+         intervals.splice(timeVal, 1);
+      }
       const indice = roomIteration.findIndex(r=>r.room === socket.room);
       if(indice !== -1) {
          roomIteration.splice(indice, 1);
@@ -138,9 +146,12 @@ io.on('connection', (socket) => {
 
    const startSwarming = (room) => {
       //console.log(roomIteration)
-      interval = setInterval((roomId) => {
+      const interval = setInterval((roomId) => {
          let room = roomIteration.find(r=>r.room === roomId);
          //console.log(`Request : ${JSON.stringify(room)}`)
+         if(room === undefined) {
+            console.log("mil gya");
+         }
          room.iteration = room.iteration + 1;
          if(room.iteration > maxIteration) {
             console.log('catch me if you can');
@@ -149,7 +160,7 @@ io.on('connection', (socket) => {
             room.requestForSwarming.iteration = room.iteration;
             room.requestForSwarming.maxIteration = maxIteration;
             gamePlayerActivities = [];
-            //console.log('requestForSwarming', JSON.stringify(room.requestForSwarming));
+            console.log('requestForSwarming', JSON.stringify(room.requestForSwarming));
             api.post(`${baseUrl}/calculateGlobalBestSolutionNew`, room.requestForSwarming)
             .then((response) => {
                response.data.roomId = roomId;
@@ -162,7 +173,11 @@ io.on('connection', (socket) => {
                console.log(`${room} error calculateGlobalBestSolutionNew`, error)});
          }
       }, apiCall, room);
-      timeout = setTimeout((roomId) => {
+      intervals.push({
+         room,
+         interval
+      });
+      const timeout = setTimeout((roomId) => {
          clearInterval(interval);
          let room = roomIteration.find(r=>r.room === roomId);
          room.requestForSwarming.iteration = room.iteration + 1;
@@ -185,6 +200,7 @@ io.on('connection', (socket) => {
             console.log(`${room} error calculateGlobalBestSolutionNew`, error)})
          ;
       }, swarmDuration, room);
+      timeouts.push({room, timeout})
    }
 
    socket.on('option-selected', (request) => {
