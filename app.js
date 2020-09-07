@@ -73,7 +73,7 @@ io.on('connection', (socket) => {
       }
       if (timeVal !== -1) {
          clearInterval(timeouts[timeVal].timeout);
-         intervals.splice(timeVal, 1);
+         timeouts.splice(timeVal, 1);
       }
       const indice = roomIteration.findIndex(r=>r.room === socket.room);
       if(indice !== -1) {
