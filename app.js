@@ -225,8 +225,12 @@ io.on('connection', (socket) => {
             gamePlayerActivities.forEach(player=>player.positions = removeConsecutive(player.positions));
             console.log(roomIteration);
             const indice = roomIteration.findIndex(r => r.room === request.roomId);
-            roomIteration[indice].requestForSwarming = {roomId: request.roomId, particles: gamePlayerActivities.filter(player => player.roomId === request.roomId).map(player => ({particleId: player.particleId, positions: player.positions}))};
-            console.log(roomIteration[indice].requestForSwarming);
+            if(indice !== -1) {
+               roomIteration[indice].requestForSwarming = {roomId: request.roomId, particles: gamePlayerActivities.filter(player => player.roomId === request.roomId).map(player => ({particleId: player.particleId, positions: player.positions}))};
+               console.log(roomIteration[indice].requestForSwarming);
+            } else {
+               console.log(`${JSON.stringify(roomIteration)} and ${request.roomId}`);
+            }
         }
    });
 
