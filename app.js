@@ -65,20 +65,6 @@ io.on('connection', (socket) => {
    socket.once('disconnect', () => {
       console.log(`Disconnected: ${socket.id}`)
       clearInterval(connectionInterval);
-      const interVal = intervals.findIndex(interval=>interval.room === socket.room);
-      const timeVal = timeouts.findIndex(timeout=>timeout.room === socket.room);
-      if (interVal !== -1) {
-         clearInterval(intervals[interVal].interval);
-         intervals.splice(interVal, 1);
-      }
-      if (timeVal !== -1) {
-         clearTimeout(timeouts[timeVal].timeout);
-         timeouts.splice(timeVal, 1);
-      }
-      const indice = roomIteration.findIndex(r=>r.room === socket.room);
-      if(indice !== -1) {
-         roomIteration.splice(indice, 1);
-      }
       //const { room } = socket;
       if (socket.room) {
          emitOnlineUsers(socket);
@@ -127,6 +113,20 @@ io.on('connection', (socket) => {
    });
 
    socket.once('can-start-swarming', (request) => {
+      const interVal = intervals.findIndex(interval=>interval.room === request.roomId);
+      const timeVal = timeouts.findIndex(timeout=>timeout.room === request.roomId);
+      if (interVal !== -1) {
+         clearInterval(intervals[interVal].interval);
+         intervals.splice(interVal, 1);
+      }
+      if (timeVal !== -1) {
+         clearTimeout(timeouts[timeVal].timeout);
+         timeouts.splice(timeVal, 1);
+      }
+      const indice = roomIteration.findIndex(r=>r.room === request.roomId);
+      if(indice !== -1) {
+         roomIteration.splice(indice, 1);
+      }
       console.log('1st api', JSON.stringify(request));
       api.post(`${baseUrl}/loadSwarmDataNew`, request)
          .then((response) => {
